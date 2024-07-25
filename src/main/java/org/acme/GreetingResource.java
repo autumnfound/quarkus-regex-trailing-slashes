@@ -1,14 +1,16 @@
 package org.acme;
 
-import java.io.BufferedReader;
 import java.io.IOException;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
-import java.util.stream.Collectors;
+import java.io.InputStream;
+import java.util.Arrays;
+import java.util.List;
 
 import org.eclipse.microprofile.rest.client.inject.RestClient;
 import org.jboss.resteasy.reactive.common.jaxrs.ResponseImpl;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
+
+import jakarta.inject.Inject;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.core.Response;
@@ -18,6 +20,12 @@ public class GreetingResource {
 
     @RestClient
     GreetingClient client;
+    @Inject
+    ObjectMapper m;
+
+    /*
+     * Object-based responses
+     */
 
     @GET
     public SampleRecord hello() {
@@ -39,12 +47,41 @@ public class GreetingResource {
     @GET
     @Path("proxy-with-stream")
     public Response proxyStream() throws IOException {
-        try (BufferedReader r = new BufferedReader(
-                new InputStreamReader(((ResponseImpl) client.sampleGet()).getEntityStream(), StandardCharsets.UTF_8))) {
-            return Response.ok(r.lines()
-                    .collect(Collectors.joining("\n"))).build();
+        try (InputStream is = ((ResponseImpl) client.sampleGet()).getEntityStream()) {
+            return Response.ok(m.readValue(is, SampleRecord.class)).build();
         }
     }
 
-    public record SampleRecord(String message, long someNumber){}
+    /*
+     * List-based responses
+     */
+
+    @GET
+    @Path("list")
+    public List<SampleRecord> hellos() {
+        return Arrays.asList(new SampleRecord("Hello from RESTEasy Reactive", System.currentTimeMillis() % 10));
+    }
+
+    @GET
+    @Path("list/proxy")
+    public Response proxyList() {
+        return Response.ok(client.sampleGetList().getEntity()).build();
+    }
+
+    @GET
+    @Path("list/proxy-with-casting")
+    public Response proxyListCast() {
+        return Response.ok(client.sampleGetList().readEntity((Class<List<SampleRecord>>) (Class) List.class)).build();
+    }
+
+    @GET
+    @Path("list/proxy-with-stream")
+    public Response proxyListStream() throws IOException {
+        try (InputStream is = ((ResponseImpl) client.sampleGetList()).getEntityStream()) {
+            return Response.ok(m.readerForListOf(SampleRecord.class).readValue(is)).build();
+        }
+    }
+
+    public record SampleRecord(String message, long someNumber) {
+    }
 }
