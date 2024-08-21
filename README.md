@@ -1,23 +1,26 @@
-# Reproducer for Quarkus #25496
+# Reproducer for Quarkus Reactive REST package issue
 
-This error causes generic object fetches of getEntity calls to fail, while typed calls will still function. This shows the body is present but not reachable. This project is a reproducer which uses a resource that calls itself through a rest client to demonstrate issue.
+When attempting to navigate to endpoints that use regex within the path expression (i.e. `@Path("{somePath:[a-z]{2}}")`), trailing slashes do not properly route to the resource and instead return an error that the path cannot be found.
+
+This seems to be a regression/missed aspect for the fix associated with https://github.com/quarkusio/quarkus/issues/26016.
 
 ## Reproduction steps:
 
-1. Start Quarkus server w/ `quarkus dev` or `mvn compile quarkus:dev`.
-2. Check following URLs:
-   - http://localhost:8080/hello/proxy
-   - http://localhost:8080/hello/proxy-with-stream
-   - http://localhost:8080/hello/proxy-with-casting
-3. Additional samples provided for list support:
-   - http://localhost:8080/hello/list/proxy
-   - http://localhost:8080/hello/list/proxy-with-stream
-   - http://localhost:8080/hello/list/proxy-with-casting
+1. With server started, open the following URLs in browser to confirm that endpoints do properly exist + route:
+- http://localhost:8080/hello/working/123
+- http://localhost:8080/hello/non-working/123
+- http://localhost:8080/hello/non-working/123/second-test
+1. In browser, open the following links to observe behaviour with trailing slashes
+- http://localhost:8080/hello/working/123/
+- http://localhost:8080/hello/non-working/123/
+- http://localhost:8080/hello/non-working/123/second-test/  
+
+All 3 URLs in step 2 should pass, but only the first link does
 
 ### Expected
 
-All URLs should return a simple record JSON to the browser.
+In cases where there are regex expressions within the `@Path` value, adding trailing slashes to the endpoint should route to the same endpoint.
 
 ### Actual
 
-Only with stream and exact casting does the object return.
+When a trailing slash is present in URL for endpoints that contain a regex in the path, the endpoint doesn't properly route. 
